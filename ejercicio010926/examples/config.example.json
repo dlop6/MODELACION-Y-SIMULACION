@@ -1,0 +1,47 @@
+{
+  "seed": 20260901,
+  "inventory": {
+    "horizon": 365.0,
+    "initial_units": 40,
+    "product_limit": 100,
+    "shortage_threshold": 15,
+    "reorder_point": 20,
+    "order_quantity": 50,
+    "max_open_orders": 1,
+    "shortage_policy": "lost_sales",
+    "demand_interarrival": {
+      "type": "exponential",
+      "mean": 0.5
+    },
+    "demand_size": {
+      "type": "discrete_uniform",
+      "min": 1,
+      "max": 5
+    },
+    "order_lead_time": {
+      "type": "triangular",
+      "min": 2.0,
+      "mode": 3.0,
+      "max": 5.0
+    },
+    "unit_order_cost": 7.5,
+    "fixed_order_cost": 25.0,
+    "holding_cost_per_unit_time": 0.03,
+    "sale_price": 12.0
+  },
+  "repair_system": {
+    "horizon": 8760.0,
+    "working_machines": 5,
+    "available_spares": 2,
+    "machine_lifetime": {
+      "type": "exponential",
+      "mean": 1000.0
+    },
+    "repair_time": {
+      "type": "triangular",
+      "min": 4.0,
+      "mode": 8.0,
+      "max": 16.0
+    }
+  }
+}

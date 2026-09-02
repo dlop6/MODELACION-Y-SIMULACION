@@ -1,0 +1,14 @@
+{
+  "inventory": {
+    "fill_rate": 0.95,
+    "average_units_now": 35.0,
+    "C_ordering_cost": 50000.0,
+    "H_holding_cost": 400.0,
+    "R_sales_revenue": 100000.0
+  },
+  "repair_system": {
+    "machine_availability": 0.98,
+    "mechanic_utilization": 0.08,
+    "average_broken_machines": 0.1
+  }
+}
