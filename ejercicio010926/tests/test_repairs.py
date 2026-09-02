@@ -28,6 +28,7 @@ def test_one_mechanic_and_cold_spare_accounting():
     assert result["time_to_first_total_stoppage"] is None
     assert 0 <= result["machine_availability"] <= 1
     assert 0 <= result["mechanic_utilization"] <= 1
+    assert result["little_repair_absolute_error"] == pytest.approx(0.0)
 
 
 def test_rejects_zero_working_machines():

@@ -122,6 +122,7 @@ class _Event:
     sequence: int
     kind: str
     quantity: int = 0
+    order_id: int = 0
 
 
 class InventorySimulator:
@@ -136,14 +137,22 @@ class InventorySimulator:
         events: list[_Event] = []
         sequence = 0
 
-        def schedule(time: float, priority: int, kind: str, quantity: int = 0) -> None:
+        def schedule(
+            time: float,
+            priority: int,
+            kind: str,
+            quantity: int = 0,
+            order_id: int = 0,
+        ) -> None:
             nonlocal sequence
             sequence += 1
-            heapq.heappush(events, _Event(time, priority, sequence, kind, quantity))
+            heapq.heappush(
+                events, _Event(time, priority, sequence, kind, quantity, order_id)
+            )
 
         on_hand = cfg.initial_units
         backlog = 0
-        pending_orders: list[int] = []
+        pending_orders: dict[int, tuple[int, float]] = {}
         last_time = 0.0
         inventory_area = 0.0
         ordered_area = 0.0
@@ -151,10 +160,11 @@ class InventorySimulator:
         units_demanded = units_sold = units_lost = 0
         orders_placed = units_ordered = shortage_notifications = 0
         ordering_cost = revenue = 0.0
+        delivered_order_unit_time = 0.0
         low_stock_active = False
 
         def on_order() -> int:
-            return sum(pending_orders)
+            return sum(quantity for quantity, _ in pending_orders.values())
 
         def update_shortage_notification() -> None:
             nonlocal low_stock_active, shortage_notifications
@@ -173,12 +183,13 @@ class InventorySimulator:
                 quantity = min(cfg.order_quantity, available_capacity)
                 if quantity <= 0:
                     break
-                pending_orders.append(quantity)
                 orders_placed += 1
+                order_id = orders_placed
+                pending_orders[order_id] = (quantity, now)
                 units_ordered += quantity
                 ordering_cost += cfg.fixed_order_cost + quantity * cfg.unit_order_cost
                 lead_time = positive_sample(cfg.order_lead_time, rng, "order_lead_time")
-                schedule(now + lead_time, 0, "delivery", quantity)
+                schedule(now + lead_time, 0, "delivery", quantity, order_id)
 
         update_shortage_notification()
         reorder(0.0)
@@ -196,7 +207,8 @@ class InventorySimulator:
             last_time = event.time
 
             if event.kind == "delivery":
-                pending_orders.remove(event.quantity)
+                _, placed_at = pending_orders.pop(event.order_id)
+                delivered_order_unit_time += event.quantity * (event.time - placed_at)
                 delivered = event.quantity
                 if cfg.shortage_policy == "backorder" and backlog:
                     filled = min(delivered, backlog)
@@ -233,6 +245,16 @@ class InventorySimulator:
         backlog_area += backlog * remaining
         holding_cost = inventory_area * cfg.holding_cost_per_unit_time
         fill_rate = units_sold / units_demanded if units_demanded else 1.0
+        observed_order_unit_time = delivered_order_unit_time + sum(
+            quantity * (cfg.horizon - placed_at)
+            for quantity, placed_at in pending_orders.values()
+        )
+        order_unit_rate = units_ordered / cfg.horizon
+        observed_lead_time = (
+            observed_order_unit_time / units_ordered if units_ordered else 0.0
+        )
+        average_units_ordered = ordered_area / cfg.horizon
+        little_order_rhs = order_unit_rate * observed_lead_time
         return {
             "horizon": cfg.horizon,
             "ending_units_now": on_hand,
@@ -246,10 +268,14 @@ class InventorySimulator:
             "shortage_notifications": shortage_notifications,
             "fill_rate": fill_rate,
             "average_units_now": inventory_area / cfg.horizon,
-            "average_units_ordered": ordered_area / cfg.horizon,
+            "average_units_ordered": average_units_ordered,
             "average_backlog": backlog_area / cfg.horizon,
             "C_ordering_cost": ordering_cost,
             "H_holding_cost": holding_cost,
             "R_sales_revenue": revenue,
             "net_result": revenue - ordering_cost - holding_cost,
+            "little_ordered_unit_rate": order_unit_rate,
+            "little_observed_lead_time": observed_lead_time,
+            "little_order_lambda_times_w": little_order_rhs,
+            "little_order_absolute_error": abs(average_units_ordered - little_order_rhs),
         }

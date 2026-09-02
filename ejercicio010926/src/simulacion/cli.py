@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .bank import BankConfig, BankSimulator
 from .comparison import compare_metrics
 from .inventory import InventoryConfig, InventorySimulator
 from .repairs import RepairConfig, RepairSystemSimulator
@@ -31,17 +32,21 @@ def run(
     seed = config_data.get("seed")
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise ValueError("'seed' debe ser un entero")
-    inventory = InventorySimulator(InventoryConfig.from_dict(config_data.get("inventory"))).run(seed)
+    bank = BankSimulator(BankConfig.from_dict(config_data.get("bank"))).run(seed)
+    inventory = InventorySimulator(
+        InventoryConfig.from_dict(config_data.get("inventory"))
+    ).run(seed)
     repair_system = RepairSystemSimulator(
         RepairConfig.from_dict(config_data.get("repair_system"))
     ).run(seed)
     result: dict[str, Any] = {
         "seed": seed,
+        "bank": bank,
         "inventory": inventory,
         "repair_system": repair_system,
     }
     if actual_data is not None:
-        unknown = set(actual_data) - {"inventory", "repair_system"}
+        unknown = set(actual_data) - {"bank", "inventory", "repair_system"}
         if unknown:
             raise ValueError(f"modelos reales desconocidos: {', '.join(sorted(unknown))}")
         result["comparison"] = {
@@ -53,7 +58,7 @@ def run(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Simula inventario y máquinas con repuestos."
+        description="Simula un banco, inventario y máquinas con repuestos."
     )
     parser.add_argument("config", type=Path, help="configuración JSON")
     parser.add_argument("--actual", type=Path, help="valores reales JSON para comparar")

@@ -1,5 +1,19 @@
 {
   "seed": 20260901,
+  "bank": {
+    "horizon": 480.0,
+    "tellers": 2,
+    "customer_interarrival": {
+      "type": "exponential",
+      "mean": 4.0
+    },
+    "service_time": {
+      "type": "triangular",
+      "min": 2.0,
+      "mode": 4.0,
+      "max": 8.0
+    }
+  },
   "inventory": {
     "horizon": 365.0,
     "initial_units": 40,

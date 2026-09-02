@@ -37,6 +37,7 @@ def test_deterministic_inventory_accounting():
     assert result["H_holding_cost"] == 10
     assert result["R_sales_revenue"] == 25
     assert result["net_result"] == 4
+    assert result["little_order_absolute_error"] == pytest.approx(0.0)
 
 
 def test_rejects_initial_inventory_above_limit():

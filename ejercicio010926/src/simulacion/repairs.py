@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import heapq
+from collections import deque
 from dataclasses import dataclass
 from random import Random
 from typing import Any
@@ -90,18 +91,21 @@ class RepairSystemSimulator:
 
         working = cfg.working_machines
         spares = cfg.available_spares
-        broken = 0
+        repair_queue: deque[float] = deque()
+        active_failure_time: float | None = None
         mechanic_busy = False
         target_working = cfg.working_machines
         initial_total = working + spares
         last_time = 0.0
         working_area = spares_area = broken_area = busy_area = 0.0
         failures = repairs_completed = replacements = 0
+        completed_broken_time = 0.0
         first_system_failure: float | None = None
 
         def start_repair(now: float) -> None:
-            nonlocal mechanic_busy
-            if broken > 0 and not mechanic_busy:
+            nonlocal active_failure_time, mechanic_busy
+            if repair_queue and not mechanic_busy:
+                active_failure_time = repair_queue.popleft()
                 mechanic_busy = True
                 duration = positive_sample(cfg.repair_time, rng, "repair_time")
                 schedule(now + duration, 0, "repair_complete")
@@ -114,6 +118,7 @@ class RepairSystemSimulator:
             if event.time > cfg.horizon:
                 break
             elapsed = event.time - last_time
+            broken = len(repair_queue) + int(mechanic_busy)
             working_area += working * elapsed
             spares_area += spares * elapsed
             broken_area += broken * elapsed
@@ -122,7 +127,7 @@ class RepairSystemSimulator:
 
             if event.kind == "failure":
                 working -= 1
-                broken += 1
+                repair_queue.append(event.time)
                 failures += 1
                 if spares > 0:
                     spares -= 1
@@ -134,7 +139,10 @@ class RepairSystemSimulator:
                 start_repair(event.time)
                 continue
 
-            broken -= 1
+            if active_failure_time is None:
+                raise RuntimeError("el mecánico terminó una reparación inexistente")
+            completed_broken_time += event.time - active_failure_time
+            active_failure_time = None
             repairs_completed += 1
             mechanic_busy = False
             if working < target_working:
@@ -144,10 +152,12 @@ class RepairSystemSimulator:
                 spares += 1
             start_repair(event.time)
 
+            broken = len(repair_queue) + int(mechanic_busy)
             if working + spares + broken != initial_total:
                 raise RuntimeError("se violó la conservación de máquinas")
 
         remaining = cfg.horizon - last_time
+        broken = len(repair_queue) + int(mechanic_busy)
         working_area += working * remaining
         spares_area += spares * remaining
         broken_area += broken * remaining
@@ -155,6 +165,15 @@ class RepairSystemSimulator:
         availability = min(1.0, max(0.0, working_area / (target_working * cfg.horizon)))
         mechanic_utilization = min(1.0, max(0.0, busy_area / cfg.horizon))
         average_working = min(float(target_working), max(0.0, working_area / cfg.horizon))
+        observed_broken_time = completed_broken_time + sum(
+            cfg.horizon - failure_time for failure_time in repair_queue
+        )
+        if active_failure_time is not None:
+            observed_broken_time += cfg.horizon - active_failure_time
+        failure_rate = failures / cfg.horizon
+        observed_time_broken = observed_broken_time / failures if failures else 0.0
+        average_broken = broken_area / cfg.horizon
+        little_repair_rhs = failure_rate * observed_time_broken
         return {
             "horizon": cfg.horizon,
             "ending_working_machines": working,
@@ -166,8 +185,12 @@ class RepairSystemSimulator:
             "replacements": replacements,
             "average_working_machines": average_working,
             "average_available_spares": spares_area / cfg.horizon,
-            "average_broken_machines": broken_area / cfg.horizon,
+            "average_broken_machines": average_broken,
             "machine_availability": availability,
             "mechanic_utilization": mechanic_utilization,
             "time_to_first_total_stoppage": first_system_failure,
+            "little_failure_rate": failure_rate,
+            "little_observed_time_broken": observed_time_broken,
+            "little_repair_lambda_times_w": little_repair_rhs,
+            "little_repair_absolute_error": abs(average_broken - little_repair_rhs),
         }

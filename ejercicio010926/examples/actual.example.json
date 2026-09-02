@@ -1,4 +1,9 @@
 {
+  "bank": {
+    "average_customers_in_queue": 1.2,
+    "average_wait_for_started_services": 3.5,
+    "teller_utilization": 0.65
+  },
   "inventory": {
     "fill_rate": 0.95,
     "average_units_now": 35.0,
