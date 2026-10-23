@@ -1,0 +1,11 @@
+[server]
+address = "localhost"
+headless = true
+maxUploadSize = 1
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+
+[client]
+showErrorDetails = false

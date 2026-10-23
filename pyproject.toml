@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "logistica-del-valle"
+version = "1.0.0"
+description = "Rutas óptimas y simulación de entregas para Logística del Valle (práctica 4)"
+requires-python = ">=3.11"
+dependencies = [
+    "streamlit>=1.64",
+    "networkx>=3.6",
+    "matplotlib>=3.10",
+    "pandas>=2.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
